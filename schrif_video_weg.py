@@ -36,7 +36,10 @@ cur = connectie.cursor()
 
 
 # YouTube Data API key
-api_key = 'AIzaSyBlqseSusm09cKpg8SHXZZFy6ou1UQ_wec'
+api_key = os.getenv("YOUTUBE_API_KEY")
+
+if not api_key:
+    raise ValueError("Missing YouTube API key in environment variables")
 
 # Categories mapping
 categories = {
