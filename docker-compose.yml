@@ -1,0 +1,22 @@
+version: '3.8'
+services:
+  video_weg:
+    build: .
+    container_name: video_weg_service
+    command: python schrif_video_weg.py
+    environment:
+      - DB_HOST=95.217.3.61
+      - DB_PORT=5432
+      - DB_NAME=indatad_s1149010
+      - DB_USER=s1149010
+      - DB_PASSWORD=s1149010
+    depends_on:
+      - db_connection_check
+
+  db_connection_check:
+    image: appropriate/curl
+    container_name: db_connection_check
+    command: ["sh", "-c", "while ! curl -s http://95.217.3.61:5432/; do sleep 2; done;"]
+
+
+
