@@ -6,20 +6,34 @@ import datetime
 import pytz  # Import for time zone handling
 
 # SSH connection details
-ssh_host = '145.97.16.170'
-ssh_username = 's1149010'
-ssh_password = 's1149010'
-remote_directory = '/data/video'
+ssh_host = os.getenv("SSH_HOST")
+ssh_username = os.getenv("SSH_USERNAME")
+ssh_password = os.getenv("SSH_PASSWORD")
+remote_directory = os.getenv("REMOTE_DIRECTORY")
+
+if not all([ssh_host, ssh_username, ssh_password, remote_directory]):
+    raise ValueError("Missing one or more environment variables for SSH connection.")
 
 # Database connection details
+db_name = os.getenv("DB_NAME")
+db_user = os.getenv("DB_USER")
+db_host = os.getenv("DB_HOST")
+db_password = os.getenv("DB_PASSWORD")
+db_port = os.getenv("DB_PORT")
+
+if not all([db_name, db_user, db_host, db_password, db_port]):
+    raise ValueError("Missing one or more environment variables for database connection.")
+
 connectie = psycopg2.connect(
-    database=os.getenv("DB_NAME", "indatad_s1149010"),
-    user=os.getenv("DB_USER", "s1149010"),
-    host=os.getenv("DB_HOST", "95.217.3.61"),
-    password=os.getenv("DB_PASSWORD", "s1149010"),
-    port=os.getenv("DB_PORT", "5432")
+    database=db_name,
+    user=db_user,
+    host=db_host,
+    password=db_password,
+    port=db_port
 )
 cur = connectie.cursor()
+
+
 
 # YouTube Data API key
 api_key = 'AIzaSyBlqseSusm09cKpg8SHXZZFy6ou1UQ_wec'

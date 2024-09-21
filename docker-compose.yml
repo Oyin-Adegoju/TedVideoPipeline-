@@ -5,18 +5,24 @@ services:
     container_name: video_weg_service
     command: python schrif_video_weg.py
     environment:
-      - DB_HOST=95.217.3.61
-      - DB_PORT=5432
-      - DB_NAME=indatad_s1149010
-      - DB_USER=s1149010
-      - DB_PASSWORD=s1149010
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - SSH_HOST=${SSH_HOST}
+      - SSH_USERNAME=${SSH_USERNAME}
+      - SSH_PASSWORD=${SSH_PASSWORD}
+      - REMOTE_DIRECTORY=${REMOTE_DIRECTORY}
     depends_on:
       - db_connection_check
 
   db_connection_check:
     image: appropriate/curl
     container_name: db_connection_check
-    command: ["sh", "-c", "while ! curl -s http://95.217.3.61:5432/; do sleep 2; done;"]
-
+    environment:
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+    command: [ "sh", "-c", "while ! curl -s http://${DB_HOST}:${DB_PORT}/; do sleep 2; done;" ]
 
 
