@@ -5,12 +5,8 @@ FROM python:3.10-slim-bookworm
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Install necessary packages and update GPG keys
+# Install system dependencies and psycopg2 for PostgreSQL
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gnupg2 \
-    ca-certificates \
-    && apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 648ACFD622F3D138 112695A0E562B32A \
-    && apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
@@ -29,5 +25,5 @@ COPY . /app
 RUN useradd -ms /bin/bash appuser
 USER appuser
 
-# Command to run the Python script
+# Command to run your Python script
 CMD ["python", "schrif_video_weg.py"]
