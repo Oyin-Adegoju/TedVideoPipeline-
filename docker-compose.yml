@@ -12,7 +12,4 @@ services:
   db_connection_check:
     image: appropriate/curl
     container_name: db_connection_check
-    environment:
-      - DB_HOST=${DB_HOST}
-      - DB_PORT=${DB_PORT}
     command: ["sh", "-c", "while ! curl -s http://$DB_HOST:$DB_PORT/; do sleep 2; done;"]
