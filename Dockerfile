@@ -24,3 +24,6 @@ COPY . /app
 # Use a non-root user for security purposes (optional)
 RUN useradd -ms /bin/bash appuser
 USER appuser
+
+# Command to run your Python script
+CMD ["python", "schrif_video_weg.py"]
