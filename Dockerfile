@@ -5,11 +5,8 @@ FROM python:3.10-slim-bookworm
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Add new GPG keys and install dependencies
+# Install system dependencies and psycopg2 for PostgreSQL
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gnupg \
-    && apt-key adv --keyserver keyserver.ubuntu.com --recv-keys A1BC8D478F510F04 \
-    && apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
