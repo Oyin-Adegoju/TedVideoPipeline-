@@ -14,9 +14,12 @@ build_docker_image:
   script:
     # Log in to Docker Hub
     - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-    # Build the Docker image
-    - docker build --pull -t "$DOCKER_IMAGE_NAME:$DOCKER_TAG" .
+
+    # Build the Docker image, passing environment variables into the build process
+    - docker build --pull --build-arg DB_HOST=$DB_HOST --build-arg DB_PORT=$DB_PORT --build-arg DB_NAME=$DB_NAME --build-arg DB_USER=$DB_USER --build-arg DB_PASSWORD=$DB_PASSWORD --build-arg SSH_HOST=$SSH_HOST --build-arg SSH_USERNAME=$SSH_USERNAME --build-arg SSH_PASSWORD=$SSH_PASSWORD --build-arg REMOTE_DIRECTORY=$REMOTE_DIRECTORY --build-arg YOUTUBE_API_KEY=$YOUTUBE_API_KEY -t "$DOCKER_IMAGE_NAME:$DOCKER_TAG" .
+
     # Tag the image with your Docker Hub repository
     - docker tag "$DOCKER_IMAGE_NAME:$DOCKER_TAG" "$DOCKER_USERNAME/$DOCKER_IMAGE_NAME:$DOCKER_TAG"
+    
     # Push the image to Docker Hub
     - docker push "$DOCKER_USERNAME/$DOCKER_IMAGE_NAME:$DOCKER_TAG"
