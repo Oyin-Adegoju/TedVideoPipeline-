@@ -2,6 +2,7 @@ pipeline:
 stages:
   - build
 
+# Build the Docker image
 build_docker_image:
   stage: build
   image: docker:latest
@@ -14,8 +15,8 @@ build_docker_image:
   script:
     # Log in to Docker Hub
     - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-    # Build the Docker image and pass environment variables using build arguments
-    - docker build --pull -t "$DOCKER_IMAGE_NAME:$DOCKER_TAG" --build-arg DB_HOST=$DB_HOST --build-arg DB_PORT=$DB_PORT --build-arg YOUTUBE_API_KEY=$YOUTUBE_API_KEY .
+    # Build the Docker image
+    - docker build --pull -t "$DOCKER_IMAGE_NAME:$DOCKER_TAG" .
     # Tag the image with your Docker Hub repository
     - docker tag "$DOCKER_IMAGE_NAME:$DOCKER_TAG" "$DOCKER_USERNAME/$DOCKER_IMAGE_NAME:$DOCKER_TAG"
     # Push the image to Docker Hub
