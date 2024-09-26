@@ -4,7 +4,9 @@ import psycopg2
 import paramiko
 import datetime
 import pytz  # Import for time zone handling
+from dotenv import load_dotenv
 
+load_dotenv()
 # SSH connection details
 ssh_host = os.getenv("SSH_HOST")
 ssh_username = os.getenv("SSH_USERNAME")
@@ -184,38 +186,40 @@ def upsert_video_metadata(metadata):
         # Get current time in Amsterdam timezone for the `timestamp` column
         current_time_amsterdam = datetime.datetime.now(amsterdam_tz)
 
-        # Parse the published date into year, month, week, and day
-        parsed_date = datetime.datetime.strptime(published_date, '%Y-%m-%dT%H:%M:%SZ')
-        year = parsed_date.year
-        month = parsed_date.month
-        week = parsed_date.isocalendar()[1]  # Get the ISO week number
-        day = parsed_date.day
+        # Parse the timestamp into year, month, week, and day
+        year = current_time_amsterdam.year
+        month = current_time_amsterdam.month
+        week = current_time_amsterdam.isocalendar()[1]  # Get the ISO week number
+        day = current_time_amsterdam.day
 
         # Insert into Dim_Date table and retrieve date_id
         cur.execute("""
-            INSERT INTO Dim_Date (video_id, year, month, week, day)
-            VALUES (%s, %s, %s, %s, %s)
-            RETURNING date_id;
-        """, (video_id, year, month, week, day))
+                    INSERT INTO Dim_Date (video_id, year, month, week, day)
+                    VALUES (%s, %s, %s, %s, %s)
+                    RETURNING date_id;
+                """, (video_id, year, month, week, day))
         date_id = cur.fetchone()[0]
 
         # Insert/Update Fact_Video_Statistics
         cur.execute("""
-               INSERT INTO Fact_Video_Statistics (video_id, view_count, like_count, comment_count, timestamp, popularity_rating, sentiment)
-               VALUES (%s, %s, %s, %s, %s, NULL, NULL)
-               ON CONFLICT (video_id) DO UPDATE
-               SET view_count = EXCLUDED.view_count,
-                   like_count = EXCLUDED.like_count,
-                   comment_count = EXCLUDED.comment_count,
-                   timestamp = EXCLUDED.timestamp;
-           """, (video_id, stats.get('viewCount', 0), stats.get('likeCount', 0), stats.get('commentCount', 0),
-                 current_time_amsterdam))
+                       INSERT INTO Fact_Video_Statistics (video_id, date_id, view_count, like_count, comment_count, timestamp, popularity_rating, sentiment)
+                       VALUES (%s, %s, %s, %s, %s, %s, NULL, NULL)
+                       ON CONFLICT (video_id) DO UPDATE
+                       SET view_count = EXCLUDED.view_count,
+                           like_count = EXCLUDED.like_count,
+                           comment_count = EXCLUDED.comment_count,
+                           timestamp = EXCLUDED.timestamp;
+                   """, (
+        video_id, date_id, stats.get('viewCount', 0), stats.get('likeCount', 0), stats.get('commentCount', 0),
+        current_time_amsterdam))
 
         connectie.commit()
         log_message("video_weg_service", "INFO", f"Successfully inserted/updated metadata for video ID {video_id}")
 
     except Exception as e:
-        log_message("video_weg_service", "ERROR", f"Failed to insert/update metadata for video ID {metadata['id']}: {e}")
+        log_message("video_weg_service", "ERROR",
+                    f"Failed to insert/update metadata for video ID {metadata['id']}: {e}")
+
 
 # Function to fetch video files from the remote directory via SSH
 # Fetch video files via SSH

@@ -14,9 +14,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Create a directory for the application
 WORKDIR /app
 
-# Install Python dependencies directly
+# Install Python dependencies, including python-dotenv
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir psycopg2-binary paramiko requests pytz
+    pip install --no-cache-dir psycopg2-binary paramiko requests pytz python-dotenv
 
 # Copy the application code to the container
 COPY . /app
