@@ -35,8 +35,6 @@ connectie = psycopg2.connect(
 )
 cur = connectie.cursor()
 
-
-
 # YouTube Data API key
 api_key = os.getenv("YOUTUBE_API_KEY")
 
@@ -57,6 +55,7 @@ categories = {
 # Set Amsterdam time zone
 amsterdam_tz = pytz.timezone('Europe/Amsterdam')
 
+
 def create_log_table():
     cur.execute("""
         CREATE TABLE IF NOT EXISTS Log (
@@ -69,6 +68,7 @@ def create_log_table():
     """)
     connectie.commit()
 
+
 # Log message function
 def log_message(service_name, log_level, message):
     cur.execute("""
@@ -78,7 +78,7 @@ def log_message(service_name, log_level, message):
     connectie.commit()
 
 
-# Function to create the necessary tables
+# Function to create the necessary tables except Dim_Date
 def create_tables():
     cur.execute("""
         CREATE TABLE IF NOT EXISTS Dim_Video (
@@ -88,7 +88,8 @@ def create_tables():
             channel_id VARCHAR(50) NOT NULL,
             channel_name TEXT NOT NULL,
             duration TEXT NOT NULL,
-            category_id INT NOT NULL
+            category_id INT NOT NULL,
+            date_id INT REFERENCES Dim_Date(date_id)
         );
     """)
 
@@ -96,18 +97,6 @@ def create_tables():
         CREATE TABLE IF NOT EXISTS Dim_Category (
             category_id INT PRIMARY KEY,
             category TEXT NOT NULL
-        );
-    """)
-
-    # Create a Dim_Date table
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS Dim_Date (
-            date_id SERIAL PRIMARY KEY,
-            video_id VARCHAR(15) REFERENCES Dim_Video(video_id),
-            year INT NOT NULL,
-            month INT NOT NULL,
-            week INT NOT NULL,
-            day INT NOT NULL
         );
     """)
 
@@ -147,7 +136,21 @@ def get_video_metadata(video_id):
         log_message("video_weg_service", "INFO", f"Successfully retrieved metadata for video ID {video_id}")
         return response.json()
     else:
-        log_message("video_weg_service", "ERROR", f"Failed to retrieve metadata for video ID {video_id}. Status code: {response.status_code}")
+        log_message("video_weg_service", "ERROR",
+                    f"Failed to retrieve metadata for video ID {video_id}. Status code: {response.status_code}")
+        return None
+
+
+# Function to get the date_id from the Dim_Date table based on timestamp
+def get_date_id_for_timestamp(timestamp):
+    date = timestamp.date()
+    cur.execute("""
+        SELECT date_id FROM Dim_Date WHERE year = %s AND month = %s AND day = %s;
+    """, (date.year, date.month, date.day))
+    result = cur.fetchone()
+    if result:
+        return result[0]
+    else:
         return None
 
 
@@ -169,49 +172,41 @@ def upsert_video_metadata(metadata):
             SET category = EXCLUDED.category;
         """, (category_id, category))
 
+        # Get the timestamp and date_id for the Fact_Video_Statistics
+        current_time_amsterdam = datetime.datetime.now(amsterdam_tz)
+        date_id_fact = get_date_id_for_timestamp(current_time_amsterdam)
+
+        # Get the date_id for Dim_Video based on the published_date
+        published_datetime = datetime.datetime.strptime(published_date, '%Y-%m-%dT%H:%M:%SZ')
+        date_id_video = get_date_id_for_timestamp(published_datetime)
+
         # Insert/Update Dim_Video
         cur.execute("""
-            INSERT INTO Dim_Video (video_id, title, published_date, channel_id, channel_name, duration, category_id)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO Dim_Video (video_id, title, published_date, channel_id, channel_name, duration, category_id, date_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (video_id) DO UPDATE
             SET title = EXCLUDED.title,
                 published_date = EXCLUDED.published_date,
                 channel_id = EXCLUDED.channel_id,
                 channel_name = EXCLUDED.channel_name,
                 duration = EXCLUDED.duration,
-                category_id = EXCLUDED.category_id;
+                category_id = EXCLUDED.category_id,
+                date_id = EXCLUDED.date_id;
         """, (video_id, snippet['title'], snippet['publishedAt'], snippet['channelId'], snippet['channelTitle'],
-              metadata['contentDetails']['duration'], category_id))
-
-        # Get current time in Amsterdam timezone for the `timestamp` column
-        current_time_amsterdam = datetime.datetime.now(amsterdam_tz)
-
-        # Parse the timestamp into year, month, week, and day
-        year = current_time_amsterdam.year
-        month = current_time_amsterdam.month
-        week = current_time_amsterdam.isocalendar()[1]  # Get the ISO week number
-        day = current_time_amsterdam.day
-
-        # Insert into Dim_Date table and retrieve date_id
-        cur.execute("""
-                    INSERT INTO Dim_Date (video_id, year, month, week, day)
-                    VALUES (%s, %s, %s, %s, %s)
-                    RETURNING date_id;
-                """, (video_id, year, month, week, day))
-        date_id = cur.fetchone()[0]
+              metadata['contentDetails']['duration'], category_id, date_id_video))
 
         # Insert/Update Fact_Video_Statistics
         cur.execute("""
-                       INSERT INTO Fact_Video_Statistics (video_id, date_id, view_count, like_count, comment_count, timestamp, popularity_rating, sentiment)
-                       VALUES (%s, %s, %s, %s, %s, %s, NULL, NULL)
-                       ON CONFLICT (video_id) DO UPDATE
-                       SET view_count = EXCLUDED.view_count,
-                           like_count = EXCLUDED.like_count,
-                           comment_count = EXCLUDED.comment_count,
-                           timestamp = EXCLUDED.timestamp;
-                   """, (
-        video_id, date_id, stats.get('viewCount', 0), stats.get('likeCount', 0), stats.get('commentCount', 0),
-        current_time_amsterdam))
+               INSERT INTO Fact_Video_Statistics (video_id, view_count, like_count, comment_count, timestamp, popularity_rating, sentiment, date_id)
+               VALUES (%s, %s, %s, %s, %s, NULL, NULL, %s)
+               ON CONFLICT (video_id) DO UPDATE
+               SET view_count = EXCLUDED.view_count,
+                   like_count = EXCLUDED.like_count,
+                   comment_count = EXCLUDED.comment_count,
+                   timestamp = EXCLUDED.timestamp,
+                   date_id = EXCLUDED.date_id;
+           """, (video_id, stats.get('viewCount', 0), stats.get('likeCount', 0), stats.get('commentCount', 0),
+                 current_time_amsterdam, date_id_fact))
 
         connectie.commit()
         log_message("video_weg_service", "INFO", f"Successfully inserted/updated metadata for video ID {video_id}")
@@ -222,7 +217,6 @@ def upsert_video_metadata(metadata):
 
 
 # Function to fetch video files from the remote directory via SSH
-# Fetch video files via SSH
 def fetch_video_files_via_ssh():
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -235,7 +229,6 @@ def fetch_video_files_via_ssh():
     finally:
         sftp.close()
         ssh.close()
-
 
 
 # Function to extract metadata from video IDs in the remote directory
@@ -253,14 +246,14 @@ def extract_metadata_from_videos(video_files):
             log_message("video_weg_service", "ERROR", f"No metadata found for video ID: {video_id}")
 
 
-
 # Main function to run the script
 def main():
     create_log_table()
-    create_tables()  # Create the tables if they don't exist
+    create_tables()  # Create the tables except Dim_Date
     video_files = fetch_video_files_via_ssh()
     extract_metadata_from_videos(video_files)
     log_message("video_weg_service", "INFO", "Database updated with video metadata.")
+
 
 if __name__ == "__main__":
     main()
