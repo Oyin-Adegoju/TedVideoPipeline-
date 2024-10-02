@@ -1,5 +1,6 @@
 .env
 # Default ignored files
+python create_and_populate_dim_date.py
 /shelf/
 /workspace.xml
 # Editor-based HTTP Client requests

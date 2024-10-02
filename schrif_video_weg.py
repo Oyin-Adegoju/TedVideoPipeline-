@@ -80,6 +80,7 @@ def log_message(service_name, log_level, message):
 
 # Function to create the necessary tables except Dim_Date
 def create_tables():
+    # Create Dim_Video table (if not already created)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS Dim_Video (
             video_id VARCHAR(15) PRIMARY KEY,
@@ -93,6 +94,7 @@ def create_tables():
         );
     """)
 
+    # Create Dim_Category table (if not already created)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS Dim_Category (
             category_id INT PRIMARY KEY,
@@ -100,32 +102,22 @@ def create_tables():
         );
     """)
 
+    # Create Fact_Video_Statistics table (if not already created)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS Fact_Video_Statistics (
-            video_id VARCHAR(15) PRIMARY KEY,
+            video_id VARCHAR(15),
             date_id INT REFERENCES Dim_Date(date_id),
             view_count INT,
             like_count INT,
             comment_count INT,
             timestamp TIMESTAMP NOT NULL,
             popularity_rating FLOAT DEFAULT NULL,
-            sentiment VARCHAR(255) DEFAULT NULL
-        );
-    """)
-
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS Dim_Transcript (
-            transcript_id SERIAL PRIMARY KEY,
-            video_id VARCHAR(15) REFERENCES Dim_Video(video_id),
-            transcript_text TEXT NOT NULL,
-            language VARCHAR(5) NOT NULL,
-            version VARCHAR(50) NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            sentiment VARCHAR(255) DEFAULT NULL,
+            PRIMARY KEY (video_id, date_id)  -- Composite Primary Key
         );
     """)
 
     connectie.commit()
-
 
 # Function to get metadata for a single video
 def get_video_metadata(video_id):
@@ -195,16 +187,27 @@ def upsert_video_metadata(metadata):
         """, (video_id, snippet['title'], snippet['publishedAt'], snippet['channelId'], snippet['channelTitle'],
               metadata['contentDetails']['duration'], category_id, date_id_video))
 
-        # Insert/Update Fact_Video_Statistics
+        # Check if data already exists for the video_id and date_id
         cur.execute("""
+            SELECT COUNT(*) FROM Fact_Video_Statistics
+            WHERE video_id = %s AND date_id = %s;
+        """, (video_id, date_id_fact))
+
+        exists = cur.fetchone()[0] > 0
+
+        if exists:
+            # Update the existing record
+            cur.execute("""
+                UPDATE Fact_Video_Statistics
+                SET view_count = %s, like_count = %s, comment_count = %s, timestamp = %s
+                WHERE video_id = %s AND date_id = %s;
+            """, (stats.get('viewCount', 0), stats.get('likeCount', 0), stats.get('commentCount', 0),
+                  current_time_amsterdam, video_id, date_id_fact))
+        else:
+            # Insert new record
+            cur.execute("""
                INSERT INTO Fact_Video_Statistics (video_id, view_count, like_count, comment_count, timestamp, popularity_rating, sentiment, date_id)
-               VALUES (%s, %s, %s, %s, %s, NULL, NULL, %s)
-               ON CONFLICT (video_id) DO UPDATE
-               SET view_count = EXCLUDED.view_count,
-                   like_count = EXCLUDED.like_count,
-                   comment_count = EXCLUDED.comment_count,
-                   timestamp = EXCLUDED.timestamp,
-                   date_id = EXCLUDED.date_id;
+               VALUES (%s, %s, %s, %s, %s, NULL, NULL, %s);
            """, (video_id, stats.get('viewCount', 0), stats.get('likeCount', 0), stats.get('commentCount', 0),
                  current_time_amsterdam, date_id_fact))
 
@@ -214,6 +217,7 @@ def upsert_video_metadata(metadata):
     except Exception as e:
         log_message("video_weg_service", "ERROR",
                     f"Failed to insert/update metadata for video ID {metadata['id']}: {e}")
+        connectie.rollback()  # Rollback the transaction on failure
 
 
 # Function to fetch video files from the remote directory via SSH
