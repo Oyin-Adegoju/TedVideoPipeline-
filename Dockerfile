@@ -14,9 +14,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Create a directory for the application
 WORKDIR /app
 
-# Install Python dependencies, including python-dotenv
+# Install Python dependencies, including python-dotenv, scikit-learn, joblib, and pandas
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir psycopg2-binary paramiko requests pytz python-dotenv
+    pip install --no-cache-dir pandas scikit-learn joblib psycopg2-binary paramiko requests pytz python-dotenv
 
 # Copy the application code to the container
 COPY . /app
@@ -24,6 +24,3 @@ COPY . /app
 # Use a non-root user for security purposes (optional)
 RUN useradd -ms /bin/bash appuser
 USER appuser
-
-# Command to run your Python script
-CMD ["python", "schrif_video_weg.py"]

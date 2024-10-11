@@ -1,10 +1,13 @@
 import os
+import subprocess
+
 import requests
 import psycopg2
 import paramiko
 import datetime
-import pytz  # Import for time zone handling
+import pytz
 from dotenv import load_dotenv
+
 
 load_dotenv()
 # SSH connection details
@@ -104,20 +107,21 @@ def create_tables():
 
     # Create Fact_Video_Statistics table (if not already created)
     cur.execute("""
-        CREATE TABLE IF NOT EXISTS Fact_Video_Statistics (
-            video_id VARCHAR(15),
-            date_id INT REFERENCES Dim_Date(date_id),
-            view_count INT,
-            like_count INT,
-            comment_count INT,
-            timestamp TIMESTAMP NOT NULL,
-            popularity_rating FLOAT DEFAULT NULL,
-            sentiment VARCHAR(255) DEFAULT NULL,
-            PRIMARY KEY (video_id, date_id)  -- Composite Primary Key
-        );
-    """)
+            CREATE TABLE IF NOT EXISTS Fact_Video_Statistics (
+                video_id VARCHAR(15),
+                date_id INT REFERENCES Dim_Date(date_id),
+                view_count INT,
+                like_count INT,
+                comment_count INT,
+                timestamp TIMESTAMP NOT NULL,
+                popularity_rating VARCHAR(15) DEFAULT NULL,  
+                sentiment VARCHAR(255) DEFAULT NULL,
+                PRIMARY KEY (video_id, date_id)
+            );
+        """)
 
     connectie.commit()
+
 
 # Function to get metadata for a single video
 def get_video_metadata(video_id):
@@ -198,18 +202,18 @@ def upsert_video_metadata(metadata):
         if exists:
             # Update the existing record
             cur.execute("""
-                UPDATE Fact_Video_Statistics
-                SET view_count = %s, like_count = %s, comment_count = %s, timestamp = %s
-                WHERE video_id = %s AND date_id = %s;
-            """, (stats.get('viewCount', 0), stats.get('likeCount', 0), stats.get('commentCount', 0),
-                  current_time_amsterdam, video_id, date_id_fact))
+                       UPDATE Fact_Video_Statistics
+                       SET view_count = %s, like_count = %s, comment_count = %s, timestamp = %s
+                       WHERE video_id = %s AND date_id = %s;
+                   """, (stats.get('viewCount', 0), stats.get('likeCount', 0), stats.get('commentCount', 0),
+                         current_time_amsterdam, video_id, date_id_fact))
         else:
             # Insert new record
             cur.execute("""
-               INSERT INTO Fact_Video_Statistics (video_id, view_count, like_count, comment_count, timestamp, popularity_rating, sentiment, date_id)
-               VALUES (%s, %s, %s, %s, %s, NULL, NULL, %s);
-           """, (video_id, stats.get('viewCount', 0), stats.get('likeCount', 0), stats.get('commentCount', 0),
-                 current_time_amsterdam, date_id_fact))
+                      INSERT INTO Fact_Video_Statistics (video_id, view_count, like_count, comment_count, timestamp, popularity_rating, sentiment, date_id)
+                      VALUES (%s, %s, %s, %s, %s, NULL, NULL, %s);
+                  """, (video_id, stats.get('viewCount', 0), stats.get('likeCount', 0), stats.get('commentCount', 0),
+                        current_time_amsterdam, date_id_fact))
 
         connectie.commit()
         log_message("video_weg_service", "INFO", f"Successfully inserted/updated metadata for video ID {video_id}")
@@ -217,7 +221,7 @@ def upsert_video_metadata(metadata):
     except Exception as e:
         log_message("video_weg_service", "ERROR",
                     f"Failed to insert/update metadata for video ID {metadata['id']}: {e}")
-        connectie.rollback()  # Rollback the transaction on failure
+        connectie.rollback()
 
 
 # Function to fetch video files from the remote directory via SSH
@@ -257,6 +261,11 @@ def main():
     video_files = fetch_video_files_via_ssh()
     extract_metadata_from_videos(video_files)
     log_message("video_weg_service", "INFO", "Database updated with video metadata.")
+    print("schrif_video_weg_done")
+    try:
+        subprocess.run(['python', 'popularity_prediction.py'], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Error running popularity prediction: {e}")
 
 
 if __name__ == "__main__":
