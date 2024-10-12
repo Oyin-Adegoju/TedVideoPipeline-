@@ -10,7 +10,7 @@ import numpy as np
 load_dotenv()
 
 # Load the scaler and model
-scaler = load('scaler.joblib')
+scaler = load('teddyxscaler.joblib')
 model = load('kmeans_model_for_ted_videos.joblib')
 
 # Database connection details (place in a .env file for security)
@@ -85,30 +85,52 @@ df['like_view_ratio'] = df['like_count'] / df['view_count']
 df['comment_view_ratio'] = df['comment_count'] / df['view_count']
 df['interaction_score'] = df['like_view_ratio'] + df['comment_view_ratio']
 
-# Define the category popularity scores
 category_popularity = {
-    10: 9,  # Music
-    24: 8,  # Entertainment
-    28: 6,  # Science & Technology
-    25: 7,  # News & Politics
-    22: 7,  # People & Blogs
-    17: 7,  # Sports
-    20: 7,  # Gaming
-    2: 5,   # Autos & Vehicles
-    15: 5,  # Pets & Animals
-    19: 5,  # Travel & Events
-    23: 6,  # Comedy
-    26: 6,  # Howto & Style
+    10: 1,  # Music
+    23: 2,  # Comedy
+    22: 3,  # People & Blogs
+    24: 4,  # Entertainment
+    28: 5,  # Science & Technology
     27: 6,  # Education
-    29: 5   # Nonprofits & Activism
+    25: 7,  # News & Politics
+    26: 8,  # Howto & Style
+    17: 8,  # Sports
+    19: 9,  # Travel & Events
+    2: 10,  # Autos & Vehicles
+    15: 10,  # Pets & Animals
+    20: 10,  # Gaming
+    1: 6,   # Film & Animation
+    18: 7,  # Short Movies
+    21: 7,  # Videoblogging
+    29: 8,  # Nonprofits & Activism
+    30: 9,  # Movies
+    31: 9,  # Anime/Animation
+    32: 9,  # Action/Adventure
+    33: 10,  # Classics
+    34: 2,  # Comedy (duplicate, consider using 23)
+    35: 5,  # Documentary
+    36: 7,  # Drama
+    37: 6,  # Family
+    38: 9,  # Foreign
+    39: 8,  # Horror
+    40: 7,  # Sci-Fi/Fantasy
+    41: 8,  # Thriller
+    42: 7,  # Shorts
+    43: 8,  # Shows
+    44: 9   # Trailers
 }
+
 
 # Calculate 'category_popularity' using the dictionary
 df['category_popularity'] = df['category_id'].map(category_popularity).fillna(5)
+# Print out category_id and category_popularity for debugging
+
 
 # Apply scaling using the loaded scaler (only for the features that need scaling)
 scaled_features = scaler.transform(df[['like_view_ratio', 'comment_view_ratio', 'interaction_score', 'category_popularity']])
 
+for index, row in df.iterrows():
+    print(scaled_features)
 # Replace the original values with the scaled values
 df[['like_view_ratio', 'comment_view_ratio', 'interaction_score', 'category_popularity']] = scaled_features
 

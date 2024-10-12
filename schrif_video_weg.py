@@ -1,6 +1,5 @@
 import os
 import subprocess
-
 import requests
 import psycopg2
 import paramiko
@@ -93,7 +92,8 @@ def create_tables():
             channel_name TEXT NOT NULL,
             duration TEXT NOT NULL,
             category_id INT NOT NULL,
-            date_id INT REFERENCES Dim_Date(date_id)
+            date_id INT REFERENCES Dim_Date(date_id),
+            sentiment FLOAT DEFAULT NULL 
         );
     """)
 
@@ -115,7 +115,6 @@ def create_tables():
                 comment_count INT,
                 timestamp TIMESTAMP NOT NULL,
                 popularity_rating VARCHAR(15) DEFAULT NULL,  
-                sentiment VARCHAR(255) DEFAULT NULL,
                 PRIMARY KEY (video_id, date_id)
             );
         """)
@@ -151,6 +150,7 @@ def get_date_id_for_timestamp(timestamp):
 
 
 # Function to insert or update the video metadata into the database
+# Function to insert or update the video metadata into the database
 def upsert_video_metadata(metadata):
     try:
         video_id = metadata['id']
@@ -176,10 +176,10 @@ def upsert_video_metadata(metadata):
         published_datetime = datetime.datetime.strptime(published_date, '%Y-%m-%dT%H:%M:%SZ')
         date_id_video = get_date_id_for_timestamp(published_datetime)
 
-        # Insert/Update Dim_Video
+        # Insert/Update Dim_Video with sentiment as NULL for now
         cur.execute("""
-            INSERT INTO Dim_Video (video_id, title, published_date, channel_id, channel_name, duration, category_id, date_id)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO Dim_Video (video_id, title, published_date, channel_id, channel_name, duration, category_id, date_id, sentiment)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NULL)  -- Sentiment is NULL
             ON CONFLICT (video_id) DO UPDATE
             SET title = EXCLUDED.title,
                 published_date = EXCLUDED.published_date,
@@ -187,11 +187,12 @@ def upsert_video_metadata(metadata):
                 channel_name = EXCLUDED.channel_name,
                 duration = EXCLUDED.duration,
                 category_id = EXCLUDED.category_id,
-                date_id = EXCLUDED.date_id;
+                date_id = EXCLUDED.date_id,
+                sentiment = EXCLUDED.sentiment; 
         """, (video_id, snippet['title'], snippet['publishedAt'], snippet['channelId'], snippet['channelTitle'],
               metadata['contentDetails']['duration'], category_id, date_id_video))
 
-        # Check if data already exists for the video_id and date_id
+        # Continue with Fact_Video_Statistics as usual, without sentiment
         cur.execute("""
             SELECT COUNT(*) FROM Fact_Video_Statistics
             WHERE video_id = %s AND date_id = %s;
@@ -210,8 +211,8 @@ def upsert_video_metadata(metadata):
         else:
             # Insert new record
             cur.execute("""
-                      INSERT INTO Fact_Video_Statistics (video_id, view_count, like_count, comment_count, timestamp, popularity_rating, sentiment, date_id)
-                      VALUES (%s, %s, %s, %s, %s, NULL, NULL, %s);
+                      INSERT INTO Fact_Video_Statistics (video_id, view_count, like_count, comment_count, timestamp, popularity_rating, date_id)
+                      VALUES (%s, %s, %s, %s, %s, NULL, %s);
                   """, (video_id, stats.get('viewCount', 0), stats.get('likeCount', 0), stats.get('commentCount', 0),
                         current_time_amsterdam, date_id_fact))
 
@@ -222,6 +223,7 @@ def upsert_video_metadata(metadata):
         log_message("video_weg_service", "ERROR",
                     f"Failed to insert/update metadata for video ID {metadata['id']}: {e}")
         connectie.rollback()
+
 
 
 # Function to fetch video files from the remote directory via SSH
