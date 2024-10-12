@@ -93,7 +93,7 @@ def create_tables():
             duration TEXT NOT NULL,
             category_id INT NOT NULL,
             date_id INT REFERENCES Dim_Date(date_id),
-            sentiment VARCHAR(15) DEFAULT NULL,  
+            sentiment VARCHAR(15) DEFAULT NULL
         );
     """)
 
