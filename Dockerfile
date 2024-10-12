@@ -16,7 +16,7 @@ WORKDIR /app
 
 # Install Python dependencies, including python-dotenv, scikit-learn, joblib, and pandas
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir pandas scikit-learn joblib psycopg2-binary paramiko requests pytz python-dotenv
+    pip install --no-cache-dir pandas scikit-learn joblib psycopg2-binary paramiko requests pytz python-dotenv youtube-transcript-api
 
 # Copy the application code to the container
 COPY . /app

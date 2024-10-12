@@ -269,6 +269,12 @@ def main():
     except subprocess.CalledProcessError as e:
         print(f"Error running popularity prediction: {e}")
 
+        # Call transcript.py to handle transcripts and sentiment analysis
+    try:
+        subprocess.run(['python', 'transcript.py'], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Error running transcript script: {e}")
+
 
 if __name__ == "__main__":
     main()
