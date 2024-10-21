@@ -53,6 +53,7 @@ cursor.execute("""
     WHERE fvs.popularity_rating IS NULL;
 """)
 rows = cursor.fetchall()
+print(f"Fetched {len(rows)} rows of data.")
 
 # Transform data into a DataFrame
 df = pd.DataFrame(rows, columns=['video_id', 'view_count', 'like_count', 'comment_count', 'duration', 'category_id', 'timestamp'])
@@ -74,17 +75,20 @@ mean_comments = df.groupby('date')['comment_count'].transform('mean')
 df['like_count'] = np.where(df['like_count'] == 0, mean_likes, df['like_count'])
 df['comment_count'] = np.where(df['comment_count'] == 0, mean_comments, df['comment_count'])
 
+print("Converting video durations to seconds...")
 # Convert duration to seconds
 df['duration_seconds'] = df['duration'].apply(convert_duration_to_seconds)
 
+print("Creating duration bins...")
 # Create duration bins with updated labels (1, 2, 3, 4)
 df['duration_bin'] = pd.cut(df['duration_seconds'], bins=[0, 300, 900, float('inf')], labels=[1, 2, 3], right=False)
 
-# Calculate ratios and interaction score
+print("Calculating ratios and interaction scores...")
 df['like_view_ratio'] = df['like_count'] / df['view_count']
 df['comment_view_ratio'] = df['comment_count'] / df['view_count']
 df['interaction_score'] = df['like_view_ratio'] + df['comment_view_ratio']
 
+print("Mapping category popularity...")
 category_popularity = {
     10: 1,  # Music
     23: 2,  # Comedy
@@ -125,7 +129,7 @@ category_popularity = {
 df['category_popularity'] = df['category_id'].map(category_popularity).fillna(5)
 # Print out category_id and category_popularity for debugging
 
-
+print("Applying scaling to relevant features...")
 # Apply scaling using the loaded scaler (only for the features that need scaling)
 scaled_features = scaler.transform(df[['like_view_ratio', 'comment_view_ratio', 'interaction_score', 'category_popularity']])
 
@@ -137,13 +141,14 @@ df[['like_view_ratio', 'comment_view_ratio', 'interaction_score', 'category_popu
 # Include 'duration_bin' directly in the features for clustering (no scaling needed for this)
 features_for_clustering = ['like_view_ratio', 'comment_view_ratio', 'interaction_score', 'duration_bin', 'category_popularity']
 
-# Predict using the loaded model with the original feature names
+print("Predicting clusters using the KMeans model...")
 df['predicted_cluster'] = model.predict(df[features_for_clustering])
 
 # Map predictions to 'populair' or 'niet populair'
+print("Mapping predicted clusters to popularity status...")
 df['popularity_status'] = df['predicted_cluster'].map({0: 'niet populair', 1: 'populair'})
 
-# Update the database with the predictions
+print("Updating the database with popularity predictions...")
 for _, row in df.iterrows():
     cursor.execute(
         """
@@ -158,3 +163,5 @@ for _, row in df.iterrows():
 # Close the database connection
 cursor.close()
 connection.close()
+
+print("Database connection closed. Script completed.")
