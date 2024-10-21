@@ -88,9 +88,9 @@ df['interaction_score'] = df['like_view_ratio'] + df['comment_view_ratio']
 category_popularity = {
     10: 1,  # Music
     23: 2,  # Comedy
-    22: 3,  # People & Blogs
+    22: 1,  # People & Blogs
     24: 4,  # Entertainment
-    28: 5,  # Science & Technology
+    28: 1,  # Science & Technology
     27: 6,  # Education
     25: 7,  # News & Politics
     26: 8,  # Howto & Style

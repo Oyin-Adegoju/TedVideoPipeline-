@@ -5,6 +5,7 @@ from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api.formatters import TextFormatter
 import joblib  # For loading the models
 import re  # For cleaning the text
+import logging
 from dotenv import load_dotenv
 
 # Load environment variables
