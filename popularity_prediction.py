@@ -146,7 +146,7 @@ df['predicted_cluster'] = model.predict(df[features_for_clustering])
 
 # Map predictions to 'populair' or 'niet populair'
 print("Mapping predicted clusters to popularity status...")
-df['popularity_status'] = df['predicted_cluster'].map({0: 'niet populair', 1: 'populair'})
+df['popularity_status'] = df['predicted_cluster'].map({1: 'niet populair', 0: 'populair'})
 
 print("Updating the database with popularity predictions...")
 for _, row in df.iterrows():
